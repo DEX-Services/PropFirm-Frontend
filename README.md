@@ -1,37 +1,53 @@
 # PropFirm Frontend
 
-The separate PropFirm by BitDx trading workspace for accounts purchased through BitDx.
+The separate BitDX Prop Firm trading workspace for accounts purchased through
+BitDX. See `PROP_FIRM_PLAN.md` at the workspace root for the full product
+design.
 
-## Current scope
+## Stack
 
-- PropFirm credential login interface
-- Responsive Trade workspace
-- Account balance, equity, loss-limit, and leverage presentation
-- Market selection and demo order-entry interactions
-- Positions, open-orders, and history states
-- Profile, trading-account, and security interface
+Vite + React + React Router + Tailwind + shadcn/ui — the same stack as the
+main exchange frontend ("Dex New Frontend"), so the trade page can use its
+real, ported components (market list, chart, positions, trade panel, order
+book) rather than a separate hand-styled approximation.
 
-This phase is frontend-only. Authentication, payment verification, account
-provisioning, balances, PnL, rules, and order execution use demo presentation
-until the PropFirm backend contracts are available.
+## Current scope — all real, no mock data
+
+- Login against BitDX Prop Firm's own backend (`POST /auth/login`), separate
+  from the exchange's own auth.
+- Trade workspace: real market list + live prices (`GET /markets`), real
+  order-book depth and recent trades proxied from the exchange's own
+  matching-engine (`GET /depth`, `GET /trades` — shown for market reference;
+  simulated evaluation-stage orders don't execute against this book), and
+  order placement/close/cancel against the simulated trading engine
+  (`POST /trading/orders`, `/trading/close`, `/trading/cancel`).
+- Positions, open orders, and trade history (`GET /trading/positions`,
+  `/trading/history`).
+- Profile page: account status, balance/equity, and full per-phase risk
+  rules (`GET /accounts`, `GET /packages`).
+
+A network/auth failure surfaces as an honest error state, never a fabricated
+fallback value. The one exception is the login page's demo-credentials
+banner, which is clearly labeled as a real provisioned test account, not a
+disguised default.
 
 ## Run locally
 
-Requires Node.js 22.13 or newer.
+Requires Node.js 20+.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`.
-
-The supplied demo login fields navigate to the trading screen; they do not
-represent real authentication.
+Open `http://localhost:3001` (or whatever port `--port` is passed). Set
+`VITE_PROPFIRM_API_URL` to point at a running BitDX Prop Firm backend
+(defaults to `http://localhost:8090`); see `.env.example`.
 
 ## Validate
 
 ```bash
+npx tsc --noEmit
+npx eslint .
 npm run build
-npm test
 ```

@@ -3,12 +3,11 @@
 // fabricated fallback in this module. A network/auth failure is surfaced
 // to the caller as a thrown error, not papered over with a fake value.
 
-const API_BASE = process.env.NEXT_PUBLIC_PROPFIRM_API_URL || "http://localhost:8090";
+const API_BASE = import.meta.env.VITE_PROPFIRM_API_URL || "http://localhost:8090";
 
 const TOKEN_KEY = "propfirm-token";
 
 export function getToken(): string | null {
-  if (typeof window === "undefined") return null;
   try {
     return window.localStorage.getItem(TOKEN_KEY);
   } catch {
@@ -116,6 +115,18 @@ export type Trade = {
   createdAt: string;
 };
 
+export type MarketRow = {
+  displaySymbol: string;
+  symbol: string;
+  market: "SPOT" | "FUTURES";
+  baseCurrency: string;
+  quoteCurrency: string;
+  maxLeverage?: number;
+  price?: string;
+  change24hPct?: string;
+  hasPrice: boolean;
+};
+
 // --- Auth ---
 
 export async function login(username: string, password: string) {
@@ -138,6 +149,46 @@ export function listPackages() {
   return request<Package[]>("/packages");
 }
 
+// --- Markets (real, currently-registered exchange markets + live prices,
+// proxied through this backend — the browser never calls the exchange's
+// matching-engine directly) ---
+
+export function listMarkets() {
+  return request<MarketRow[]>("/markets");
+}
+
+// --- Order book / recent trades (real depth from the exchange's own
+// matching-engine, proxied for reference display — simulated evaluation
+// orders never execute against this book, see PROP_FIRM_PLAN.md section
+// 10 and the order-book design discussion) ---
+
+export type DepthLevel = { price: string; size: string; total: string };
+
+export type Depth = {
+  symbol: string;
+  market: string;
+  bids: DepthLevel[];
+  asks: DepthLevel[];
+};
+
+export function getDepth(symbol: string, market: string, levels = 12) {
+  return request<Depth>(`/depth?symbol=${encodeURIComponent(symbol)}&market=${encodeURIComponent(market)}&levels=${levels}`);
+}
+
+export type RecentTrade = {
+  id: string;
+  symbol: string;
+  market: string;
+  price: string;
+  quantity: string;
+  side: "BUY" | "SELL";
+  timestamp: number;
+};
+
+export function getRecentTrades(symbol: string, market: string, limit = 30) {
+  return request<RecentTrade[]>(`/trades?symbol=${encodeURIComponent(symbol)}&market=${encodeURIComponent(market)}&limit=${limit}`);
+}
+
 // --- Accounts ---
 
 export function listAccounts() {
@@ -155,7 +206,7 @@ export function openOrder(input: {
   side: "long" | "short";
   size: string;
   leverage: number;
-  orderType: "market" | "limit" | "stop_loss" | "take_profit";
+  orderType: "market" | "limit";
   triggerPrice?: string;
 }) {
   return request<Trade>("/trading/orders", { method: "POST", body: JSON.stringify(input) });
