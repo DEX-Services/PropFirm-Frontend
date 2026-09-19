@@ -4,7 +4,6 @@ import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { formatPrice } from "@/lib/format";
 import { TrendingUp, TrendingDown, Shield, Zap } from "lucide-react";
 import type { Account, MarketRow, Package } from "@/lib/api";
 
@@ -13,8 +12,9 @@ type OrderType = "market" | "limit";
 
 // Visually ported from Dex New Frontend's TradePanel.tsx: same Spot/Futures
 // tab, Buy/Sell buttons with the buy/sell glow gradients, Market/Limit tab,
-// Price(quote)/Mid field, size slider + percent buttons, min-notional line,
-// and order-summary card. Margin-mode (isolated/cross), the Options tab,
+// Price(quote)/Mid field, adjustable leverage slider + presets, size slider
+// + percent buttons, min-notional line, and order-summary card (order
+// value, leverage, fee). Margin-mode (isolated/cross), the Options tab,
 // TP/SL percent-linked inputs, and the "More order types" menu are dropped
 // — the DEX version's margin/options machinery doesn't apply to PropFirm's
 // simulated engine (POST /trading/orders takes a flat leverage number, no
@@ -22,14 +22,20 @@ type OrderType = "market" | "limit";
 // PROP_FIRM_PLAN.md). TP/SL is left out of the submitted order for now (the
 // backend's POST /trading/orders doesn't accept attached legs yet).
 //
-// Leverage is a flat, package-fixed maximum (up to 5x, per
-// PROP_FIRM_PLAN.md section 7/12 — never the exchange's per-market 100x)
-// with no "Custom" input: unlike the exchange, where a trader can dial in
-// any leverage up to the market's cap, a PropFirm account's leverage
-// ceiling is a rule of the purchased package, not a per-trade choice — so
-// only the exact package leverage is offered (or 1x below it), and the
-// per-market "Custom" percent button on the size row is dropped too, since
-// the four preset percentages already cover the full 1-100% range.
+// Leverage: adjustable via slider + presets exactly like DEX's Isolated
+// margin control, just capped at the package's max (up to 5x, per
+// PROP_FIRM_PLAN.md section 7/12) instead of the exchange's per-market
+// 100x — the package sets the ceiling, the trader can still dial anywhere
+// from 1x up to it. No "Custom" leverage input (DEX's free-text override):
+// with a ceiling this low, the slider already lands on every whole number
+// in range, so a separate text box adds a control surface with nothing new
+// to type. The size row's "Custom" percent button is dropped for the same
+// reason: the four presets (25/50/75/100%) cover the full range.
+//
+// Fee: PropFirm charges the exchange's real, undiscounted taker fee on
+// every simulated fill (section 11) — simengine actually deducts this from
+// the account balance now, so the fee shown here is real, not a display
+// estimate (see internal/simengine/fees.go on the backend).
 export function TradePanel({
   selected,
   account,
@@ -47,6 +53,7 @@ export function TradePanel({
 }) {
   const [side, setSide] = useState<Side>("buy");
   const [orderType, setOrderType] = useState<OrderType>("market");
+  const [leverage, setLeverage] = useState(1);
   const [sizePct, setSizePct] = useState(25);
   const [sizeInput, setSizeInput] = useState("0.01");
   const [limitPrice, setLimitPrice] = useState("");
@@ -57,8 +64,18 @@ export function TradePanel({
   const balance = Number(account.balanceBi2xusd);
   const leverageMax = mode === "SPOT" ? 1 : pkg.leverageMaxFutures;
   const isFutures = mode === "FUTURES";
+  const effLeverage = isFutures ? leverage : 1;
   const longLabel = isFutures ? "Long" : "Buy";
   const shortLabel = isFutures ? "Short" : "Sell";
+  const feeRate = selected?.takerFeePct ? Number(selected.takerFeePct) / 100 : 0;
+
+  // Clamp the chosen leverage down whenever the package/market's ceiling is
+  // lower than what's currently selected (e.g. switching from Futures back
+  // to Spot, or between packages with different caps).
+  useEffect(() => {
+    setLeverage(l => Math.min(l, leverageMax));
+  }, [leverageMax]);
+
   // Mirrors the DEX TradePanel's editedPriceRef: auto-follows the live
   // price until the user actually edits the field, then stops — a live
   // tick never clobbers an in-progress edit. Resets on symbol change so a
@@ -73,13 +90,19 @@ export function TradePanel({
   }, [price]);
 
   const spendable = balance * (sizePct / 100);
-  const positionSize = price > 0 ? (spendable * leverageMax) / price : 0;
+  const positionSize = price > 0 ? (spendable * effLeverage) / price : 0;
+  const orderValue = positionSize * price;
+  const fee = orderValue * feeRate;
 
   const handleSizePct = (pct: number) => {
     const next = Math.min(100, Math.max(1, pct));
     setSizePct(next);
     const usd = balance * (next / 100);
-    setSizeInput(price > 0 ? ((usd * leverageMax) / price).toFixed(6) : usd.toFixed(2));
+    setSizeInput(price > 0 ? ((usd * effLeverage) / price).toFixed(6) : usd.toFixed(2));
+  };
+
+  const setLeverageValue = (value: number) => {
+    setLeverage(Math.round(Math.min(leverageMax, Math.max(1, value))));
   };
 
   async function submitOrder() {
@@ -94,7 +117,7 @@ export function TradePanel({
         market: selected.market,
         side: side === "buy" ? "long" : "short",
         size: sizeInput || positionSize.toFixed(6),
-        leverage: leverageMax,
+        leverage: effLeverage,
         orderType,
         triggerPrice: orderType === "limit" ? limitPrice : undefined,
       });
@@ -106,6 +129,9 @@ export function TradePanel({
       setSubmitting(false);
     }
   }
+
+  const leveragePresets = [1, 2, 3, 5].filter((l, i, arr) => l <= leverageMax && arr.indexOf(l) === i);
+  if (leveragePresets[leveragePresets.length - 1] !== leverageMax) leveragePresets.push(leverageMax);
 
   return (
     <div className="glass rounded-xl flex flex-col h-full overflow-y-auto overflow-x-hidden">
@@ -167,8 +193,30 @@ export function TradePanel({
         )}
 
         {isFutures ? (
-          <div className="rounded-md border border-border/50 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-            Leverage: <span className="font-mono text-foreground">{leverageMax}x max</span> (fixed by your package)
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <span className="text-xs font-semibold text-muted-foreground">Leverage</span>
+              <span className="text-xs font-mono text-foreground">{leverage}x <span className="text-muted-foreground">/ {leverageMax}x max</span></span>
+            </div>
+            <Slider
+              value={[leverage]}
+              min={1}
+              max={leverageMax}
+              step={1}
+              onValueChange={v => setLeverageValue(v[0])}
+              className="my-1 h-3"
+            />
+            <div className="mt-2 flex flex-wrap gap-1">
+              {leveragePresets.map(l => (
+                <button key={l} onClick={() => setLeverageValue(l)}
+                  className={cn("h-8 min-w-[3.5rem] flex-1 text-[11px] rounded-md border transition-colors",
+                    leverage === l
+                      ? "border-primary bg-primary/20 text-primary shadow-[0_0_14px_hsl(var(--primary)/0.35)]"
+                      : "border-border bg-muted/20 text-muted-foreground hover:text-foreground"
+                  )}>{l}x</button>
+              ))}
+            </div>
+            <p className="mt-1 text-[10px] text-muted-foreground">Capped by your package — see PROP_FIRM_PLAN.md.</p>
           </div>
         ) : (
           <div className="rounded-md border border-border/50 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
@@ -206,14 +254,18 @@ export function TradePanel({
         </div>
 
         <div className="glass-strong rounded-lg border border-border/50 px-3 py-1.5 space-y-0.5">
-          <Row label="Order value" value={price > 0 ? `$${(positionSize * price).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : "—"} />
+          <Row label="Order value" value={price > 0 ? `$${orderValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : "—"} />
           {isFutures && (
             <Row
-              label={<span className="flex items-center gap-1"><Shield className="h-3 w-3" />Max leverage</span>}
-              value={`${leverageMax}x`}
+              label={<span className="flex items-center gap-1"><Shield className="h-3 w-3" />Leverage</span>}
+              value={`${leverage}x`}
               valueClass="text-warning"
             />
           )}
+          <Row
+            label="Fee"
+            value={selected?.takerFeePct ? `$${fee.toLocaleString(undefined, { maximumFractionDigits: 2 })} (${Number(selected.takerFeePct).toFixed(3)}%)` : "—"}
+          />
         </div>
 
         <Button
@@ -230,14 +282,14 @@ export function TradePanel({
           {submitting
             ? "Submitting…"
             : isFutures
-              ? `${side === "buy" ? "Open Long" : "Open Short"} ${leverageMax}x`
+              ? `${side === "buy" ? "Open Long" : "Open Short"} ${leverage}x`
               : `${side === "buy" ? "Buy" : "Sell"} ${selected?.baseCurrency ?? ""}`}
         </Button>
 
         {notice && <p className="text-xs text-center text-muted-foreground">{notice}</p>}
 
         <p className="text-[10px] text-muted-foreground leading-relaxed pt-1 border-t border-border/40">
-          Orders are filled by the BitDX Prop Firm simulated engine against the exchange's live price feed.
+          Orders are filled by the BitDX Prop Firm simulated engine against the exchange's live price feed. The fee shown is the real, undiscounted exchange rate and is actually charged on fill.
         </p>
       </div>
     </div>

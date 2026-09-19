@@ -125,6 +125,9 @@ export type MarketRow = {
   price?: string;
   change24hPct?: string;
   hasPrice: boolean;
+  // PropFirm's own real, undiscounted taker fee rate for this market
+  // (PROP_FIRM_PLAN.md section 11), as a percent string, e.g. "0.45".
+  takerFeePct: string;
 };
 
 // --- Auth ---
