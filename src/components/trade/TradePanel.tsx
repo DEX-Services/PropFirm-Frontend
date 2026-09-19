@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -12,16 +13,23 @@ type OrderType = "market" | "limit";
 
 // Visually ported from Dex New Frontend's TradePanel.tsx: same Spot/Futures
 // tab, Buy/Sell buttons with the buy/sell glow gradients, Market/Limit tab,
-// size slider, and order-summary card. Margin-mode (isolated/cross), the
-// Options tab, TP/SL percent-linked inputs, and the "More order types" menu
-// are dropped — the DEX version's margin/options machinery doesn't apply to
-// PropFirm's simulated engine (POST /trading/orders takes a flat leverage
-// number, no margin mode), and Options trading isn't part of this product
-// at all (see PROP_FIRM_PLAN.md). TP/SL is left out of the submitted order
-// for now (the backend's POST /trading/orders doesn't accept attached legs
-// yet — see api.ts's openOrder signature) rather than silently degrading it
-// into a second unlinked order; this is one of the "leave in, ask later" vs.
-// "clearly doesn't apply" judgment calls the task allowed for.
+// Price(quote)/Mid field, size slider + percent buttons, min-notional line,
+// and order-summary card. Margin-mode (isolated/cross), the Options tab,
+// TP/SL percent-linked inputs, and the "More order types" menu are dropped
+// — the DEX version's margin/options machinery doesn't apply to PropFirm's
+// simulated engine (POST /trading/orders takes a flat leverage number, no
+// margin mode), and Options trading isn't part of this product at all (see
+// PROP_FIRM_PLAN.md). TP/SL is left out of the submitted order for now (the
+// backend's POST /trading/orders doesn't accept attached legs yet).
+//
+// Leverage is a flat, package-fixed maximum (up to 5x, per
+// PROP_FIRM_PLAN.md section 7/12 — never the exchange's per-market 100x)
+// with no "Custom" input: unlike the exchange, where a trader can dial in
+// any leverage up to the market's cap, a PropFirm account's leverage
+// ceiling is a rule of the purchased package, not a per-trade choice — so
+// only the exact package leverage is offered (or 1x below it), and the
+// per-market "Custom" percent button on the size row is dropped too, since
+// the four preset percentages already cover the full 1-100% range.
 export function TradePanel({
   selected,
   account,
@@ -41,7 +49,7 @@ export function TradePanel({
   const [orderType, setOrderType] = useState<OrderType>("market");
   const [sizePct, setSizePct] = useState(25);
   const [sizeInput, setSizeInput] = useState("0.01");
-  const [triggerPrice, setTriggerPrice] = useState("");
+  const [limitPrice, setLimitPrice] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState("");
 
@@ -51,10 +59,18 @@ export function TradePanel({
   const isFutures = mode === "FUTURES";
   const longLabel = isFutures ? "Long" : "Buy";
   const shortLabel = isFutures ? "Short" : "Sell";
-
+  // Mirrors the DEX TradePanel's editedPriceRef: auto-follows the live
+  // price until the user actually edits the field, then stops — a live
+  // tick never clobbers an in-progress edit. Resets on symbol change so a
+  // stale manual edit doesn't carry over to a newly selected market.
+  const editedPriceRef = useRef(false);
   useEffect(() => {
-    setTriggerPrice(price ? price.toFixed(2) : "");
-  }, [selected?.symbol, price]);
+    editedPriceRef.current = false;
+  }, [selected?.symbol]);
+  useEffect(() => {
+    if (editedPriceRef.current) return;
+    if (price > 0) setLimitPrice(price.toFixed(2));
+  }, [price]);
 
   const spendable = balance * (sizePct / 100);
   const positionSize = price > 0 ? (spendable * leverageMax) / price : 0;
@@ -80,7 +96,7 @@ export function TradePanel({
         size: sizeInput || positionSize.toFixed(6),
         leverage: leverageMax,
         orderType,
-        triggerPrice: orderType === "limit" ? triggerPrice : undefined,
+        triggerPrice: orderType === "limit" ? limitPrice : undefined,
       });
       setNotice(orderType === "market" ? "Order filled." : "Order placed.");
       onOrderPlaced();
@@ -132,17 +148,18 @@ export function TradePanel({
         {orderType === "limit" && (
           <div>
             <div className="flex justify-between text-xs text-muted-foreground mb-1">
-              <span>Trigger price ({selected?.quoteCurrency ?? "—"})</span>
+              <span>Price ({selected?.quoteCurrency ?? "—"})</span>
               <button
-                onClick={() => setTriggerPrice(price ? price.toFixed(2) : "")}
+                onClick={() => { editedPriceRef.current = true; setLimitPrice(price ? price.toFixed(2) : ""); }}
                 className="text-primary hover:underline font-medium"
               >
                 Mid
               </button>
             </div>
             <Input
-              value={triggerPrice}
-              onChange={e => setTriggerPrice(e.target.value)}
+              value={limitPrice}
+              onFocus={() => { editedPriceRef.current = true; }}
+              onChange={e => { editedPriceRef.current = true; setLimitPrice(e.target.value); }}
               inputMode="decimal"
               className="h-9 rounded-lg font-mono text-sm bg-muted/30 border-border px-3"
             />
@@ -176,6 +193,7 @@ export function TradePanel({
               {selected?.baseCurrency ?? "—"}
             </div>
           </div>
+          <Slider value={[sizePct]} min={1} max={100} step={1} onValueChange={v => handleSizePct(v[0])} className="my-1 h-3" />
           <div className="grid grid-cols-4 gap-1 mt-1">
             {[25, 50, 75, 100].map(p => (
               <button key={p} onClick={() => handleSizePct(p)}
@@ -184,6 +202,7 @@ export function TradePanel({
                 )}>{p}%</button>
             ))}
           </div>
+          <div className="mt-1 text-[11px] text-muted-foreground">Min. notional 1</div>
         </div>
 
         <div className="glass-strong rounded-lg border border-border/50 px-3 py-1.5 space-y-0.5">
