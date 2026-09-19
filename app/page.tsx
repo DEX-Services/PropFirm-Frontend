@@ -4,15 +4,26 @@ import { FormEvent, useState } from "react";
 import { ArrowRight, Eye, EyeOff, LockKeyhole, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { ThemeSwitcher } from "./components/ThemeSwitcher";
+import { login } from "./lib/api";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [loginId, setLoginId] = useState("");
+  const [password, setPassword] = useState("");
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError("");
     setLoading(true);
-    window.setTimeout(() => window.location.assign("/trade"), 550);
+    try {
+      await login(loginId, password);
+      window.location.assign("/trade");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed");
+      setLoading(false);
+    }
   }
 
   return (
@@ -21,43 +32,49 @@ export default function LoginPage() {
       <div className="ambient ambient-one" />
       <div className="ambient ambient-two" />
 
-      <section className="login-story" aria-label="About PropFirm">
-        <Link className="brand" href="/" aria-label="PropFirm home">
+      <section className="login-story" aria-label="About BitDX Prop Firm">
+        <Link className="brand" href="/" aria-label="BitDX Prop Firm home">
           <span className="brand-mark">P</span>
-          <span>PropFirm</span>
-          <small>by BitDx</small>
+          <span>BitDX Prop Firm</span>
         </Link>
 
         <div className="story-content">
           <span className="eyebrow"><span /> YOUR TRADING WORKSPACE</span>
           <h1>Your rules.<br />Your progress.<br /><em>One clear view.</em></h1>
           <p>
-            Trade your PropFirm account while keeping balance, equity, drawdown,
+            Trade your BitDX Prop Firm account while keeping balance, equity, drawdown,
             and account status visible at every step.
           </p>
 
           <div className="story-points">
-            <div><ShieldCheck size={18} /><span><strong>Protected access</strong>Separate from your BitDx wallet login</span></div>
+            <div><ShieldCheck size={18} /><span><strong>Protected access</strong>Separate from your BitDX exchange login</span></div>
             <div><LockKeyhole size={18} /><span><strong>Backend-controlled rules</strong>Balances and limits cannot be changed in the browser</span></div>
           </div>
         </div>
 
-        <p className="login-footnote">Purchased on BitDx. Managed securely on PropFirm.</p>
+        <p className="login-footnote">Purchased on BitDX. Managed securely on BitDX Prop Firm.</p>
       </section>
 
       <section className="login-panel">
         <div className="login-card">
           <div className="mobile-brand">
             <span className="brand-mark">P</span>
-            <span>PropFirm</span>
+            <span>BitDX Prop Firm</span>
           </div>
-          <span className="demo-pill">FRONTEND DEMO</span>
           <h2>Welcome back</h2>
           <p>Use the login details issued after your account purchase.</p>
 
           <form onSubmit={handleSubmit}>
-            <label htmlFor="loginId">PropFirm login ID</label>
-            <input id="loginId" name="loginId" defaultValue="PF-105827" autoComplete="username" required />
+            <label htmlFor="loginId">Prop Firm login ID</label>
+            <input
+              id="loginId"
+              name="loginId"
+              value={loginId}
+              onChange={(event) => setLoginId(event.target.value)}
+              placeholder="PF-XXXXXX"
+              autoComplete="username"
+              required
+            />
 
             <div className="label-row">
               <label htmlFor="password">Password</label>
@@ -68,7 +85,8 @@ export default function LoginPage() {
                 id="password"
                 name="password"
                 type={showPassword ? "text" : "password"}
-                defaultValue="demo1234"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
                 autoComplete="current-password"
                 required
               />
@@ -77,15 +95,17 @@ export default function LoginPage() {
               </button>
             </div>
 
+            {error && <p className="form-error" role="alert">{error}</p>}
+
             <button className="primary-button login-button" type="submit" disabled={loading}>
-              {loading ? "Opening workspace…" : "Sign in to PropFirm"}
+              {loading ? "Opening workspace…" : "Sign in to BitDX Prop Firm"}
               {!loading && <ArrowRight size={18} />}
             </button>
           </form>
 
           <div className="security-note">
             <ShieldCheck size={17} />
-            <span>In production, login is verified by the backend and uses a secure session cookie.</span>
+            <span>Login is verified by the BitDX Prop Firm backend and issues a signed session token.</span>
           </div>
 
           <p className="support-copy">Need help with your account? <button type="button" className="text-button">Contact support</button></p>
