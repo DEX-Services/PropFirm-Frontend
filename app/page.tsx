@@ -6,6 +6,13 @@ import Link from "next/link";
 import { ThemeSwitcher } from "./components/ThemeSwitcher";
 import { login } from "./lib/api";
 
+// Demo credentials for local testing only — a real account provisioned
+// through the actual purchase -> POST /internal/provision flow described
+// in PROP_FIRM_PLAN.md (a 2-Step, $25,000 package, Step 1 active), not a
+// fabricated login. Remove this banner before any real deployment.
+const DEMO_LOGIN_ID = "PF-402015";
+const DEMO_PASSWORD = "IG5PCRDQOJ6O";
+
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -63,6 +70,21 @@ export default function LoginPage() {
           </div>
           <h2>Welcome back</h2>
           <p>Use the login details issued after your account purchase.</p>
+
+          <div className="demo-credentials-banner" role="note">
+            <strong>Testing locally?</strong>
+            <span>Demo account — Login ID <code>{DEMO_LOGIN_ID}</code>, Password <code>{DEMO_PASSWORD}</code></span>
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => {
+                setLoginId(DEMO_LOGIN_ID);
+                setPassword(DEMO_PASSWORD);
+              }}
+            >
+              Fill demo credentials
+            </button>
+          </div>
 
           <form onSubmit={handleSubmit}>
             <label htmlFor="loginId">Prop Firm login ID</label>
