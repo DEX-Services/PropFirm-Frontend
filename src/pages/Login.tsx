@@ -6,10 +6,11 @@ import { login } from "@/lib/api";
 
 // Demo credentials for local testing only — a real account provisioned
 // through the actual purchase -> POST /internal/provision flow described in
-// PROP_FIRM_PLAN.md (a 2-Step, $25,000 package, Step 1 active), not a
-// fabricated login. Remove this banner before any real deployment.
-const DEMO_LOGIN_ID = "PF-402015";
-const DEMO_PASSWORD = "IG5PCRDQOJ6O";
+// PROP_FIRM_PLAN.md (a 1-Step, $25,000 package, Step 1 active, funded to the
+// full account size), not a fabricated login. Remove this banner before any
+// real deployment.
+const DEMO_LOGIN_ID = "PF-577630";
+const DEMO_PASSWORD = "N7HE6HOLGCII";
 
 // Rebuilt on Dex New Frontend's visual language (glass cards, gradient-primary
 // brand mark, cyan accent, Inter/JetBrains Mono via index.css) since DEX has
