@@ -232,3 +232,39 @@ export function getPositions(accountId: string) {
 export function getHistory(accountId: string) {
   return request<Trade[] | null>(`/trading/history?accountId=${encodeURIComponent(accountId)}`);
 }
+
+// getTradingState fetches positions + pending orders + history in one call.
+//
+// This is what the trade screen's poll uses. It replaces calling
+// getPositions() and getHistory() separately, which was two HTTP requests —
+// each repeating the backend's ownership check — backed by four separate
+// database statements per tick. Against a remote database every extra
+// statement is a full round-trip of latency on a loop that runs every few
+// seconds, so the server-side version collapses it to one request and two
+// statements. The returned shape keeps the same "open"/"pending" keys as
+// getPositions and adds "history", so callers read the same fields.
+export function getTradingState(accountId: string) {
+  return request<{ open: Trade[] | null; pending: Trade[] | null; history: Trade[] | null }>(
+    `/trading/state?accountId=${encodeURIComponent(accountId)}`,
+  );
+}
+
+// getAccountAndPackages loads the trader's account and its package together,
+// in parallel.
+//
+// Both the trade page and the profile page need exactly this pair before
+// they can render anything, and they used to fetch it as
+// listAccounts() -> then listPackages(), one after the other. That made the
+// package call's latency pure added waiting, even though neither call
+// depends on the other's response — the package is only *matched* to the
+// account afterwards, in memory. Issuing them concurrently removes one full
+// round-trip from first paint.
+//
+// Returns account = null when the trader has no accounts (a valid state,
+// not an error).
+export async function getAccountAndPackages(): Promise<{ account: Account | null; pkg: Package | null }> {
+  const [accounts, packages] = await Promise.all([listAccounts(), listPackages()]);
+  const account = accounts[0] ?? null;
+  const pkg = account ? packages.find(p => p.id === account.packageId) ?? null : null;
+  return { account, pkg };
+}

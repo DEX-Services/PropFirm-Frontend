@@ -3,6 +3,7 @@ import { Toaster } from "sonner";
 import LoginPage from "@/pages/Login";
 import TradePage from "@/pages/Trade";
 import ProfilePage from "@/pages/Profile";
+import EvaluationPage from "@/pages/Evaluation";
 import { getToken } from "@/lib/api";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -18,6 +19,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<LoginPage />} />
         <Route path="/trade" element={<RequireAuth><TradePage /></RequireAuth>} />
+        <Route path="/evaluation" element={<RequireAuth><EvaluationPage /></RequireAuth>} />
         <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

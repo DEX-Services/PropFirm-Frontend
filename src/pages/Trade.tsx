@@ -16,11 +16,9 @@ import {
   Trade,
   cancelOrder,
   closeTrade,
-  getHistory,
-  getPositions,
-  listAccounts,
+  getAccountAndPackages,
+  getTradingState,
   listMarkets,
-  listPackages,
 } from "@/lib/api";
 
 // Ported panel layout from Dex New Frontend's src/pages/Index.tsx: the same
@@ -78,14 +76,14 @@ export default function TradePage() {
   const posPanelRef = useRef<ImperativePanelHandle>(null);
 
   useEffect(() => {
-    listAccounts()
-      .then(async accounts => {
-        const first = accounts[0] ?? null;
+    // Account + package are fetched concurrently rather than in sequence:
+    // the page blocks first paint until both arrive, and neither depends on
+    // the other's response, so serialising them just added a redundant
+    // round-trip to the loading screen.
+    getAccountAndPackages()
+      .then(({ account: first, pkg: firstPkg }) => {
         setAccount(first);
-        if (first) {
-          const packages = await listPackages();
-          setPkg(packages.find(p => p.id === first.packageId) ?? null);
-        }
+        setPkg(firstPkg);
       })
       .catch(err => setLoadError(err instanceof Error ? err.message : "Failed to load account"));
   }, []);
@@ -119,10 +117,13 @@ export default function TradePage() {
 
   const refreshPositions = useCallback(async (accountId: string) => {
     try {
-      const [positions, tradeHistory] = await Promise.all([getPositions(accountId), getHistory(accountId)]);
-      setOpenTrades(positions.open ?? []);
-      setPendingTrades(positions.pending ?? []);
-      setHistory(tradeHistory ?? []);
+      // One request instead of two (positions + history). Both used to
+      // re-run the ownership check and issue separate queries; the combined
+      // endpoint returns all three lists from two database statements.
+      const state = await getTradingState(accountId);
+      setOpenTrades(state.open ?? []);
+      setPendingTrades(state.pending ?? []);
+      setHistory(state.history ?? []);
     } catch {
       // Keep the last known list on a transient error rather than blanking
       // the panel — matches the polling pattern used elsewhere in this app.

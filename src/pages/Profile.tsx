@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CircleDollarSign, Info, KeyRound, LockKeyhole, ShieldCheck } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
-import { Account, Package, listAccounts, listPackages } from "@/lib/api";
+import { Account, Package, getAccountAndPackages } from "@/lib/api";
 
 const TRACK_LABELS: Record<string, string> = { instant: "Instant Funding", "1step": "1-Step Challenge", "2step": "2-Step Challenge" };
 const PHASE_LABELS: Record<string, string> = { step1: "Step 1", step2: "Step 2", funded: "Funded (Live)" };
@@ -17,14 +17,12 @@ export default function ProfilePage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    listAccounts()
-      .then(async accounts => {
-        const first = accounts[0] ?? null;
+    // Same concurrent account+package load as the trade page — this page
+    // also cannot render anything until both arrive.
+    getAccountAndPackages()
+      .then(({ account: first, pkg: firstPkg }) => {
         setAccount(first);
-        if (first) {
-          const packages = await listPackages();
-          setPkg(packages.find(p => p.id === first.packageId) ?? null);
-        }
+        setPkg(firstPkg);
       })
       .catch(err => setError(err instanceof Error ? err.message : "Failed to load account"))
       .finally(() => setLoading(false));

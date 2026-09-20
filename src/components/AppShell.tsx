@@ -1,5 +1,5 @@
 import { NavLink as RouterNavLink, Link, useNavigate } from "react-router-dom";
-import { LineChart, User, LogOut } from "lucide-react";
+import { LineChart, User, LogOut, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,7 @@ import { logout } from "@/lib/api";
 // backend's own ledger).
 const navItems = [
   { to: "/trade", icon: LineChart, label: "Trade" },
+  { to: "/evaluation", icon: ClipboardCheck, label: "Evaluation" },
   { to: "/profile", icon: User, label: "Profile" },
 ];
 
