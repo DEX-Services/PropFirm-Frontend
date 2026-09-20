@@ -5,6 +5,16 @@ import { formatPrice } from "@/lib/format";
 import { Clock3 } from "lucide-react";
 import type { Trade } from "@/lib/api";
 
+// SPOT never has a real "short" — the backend always records side="long"
+// for a spot buy since there's no borrowing/short-selling on spot, so
+// showing "LONG"/"SHORT" there is just wrong; a spot trade is a buy or a
+// sell of the asset itself. FUTURES is genuinely long/short (leveraged
+// directional exposure), so that label stays as-is.
+function sideLabel(t: Trade): string {
+  if (t.market === "SPOT") return t.side === "long" ? "BUY" : "SELL";
+  return t.side.toUpperCase();
+}
+
 // Visually ported from Dex New Frontend's PositionsPanel.tsx — same glass
 // panel, tab bar (data-[state=active] primary highlight), and monospace
 // table rows. The Bot/AI Agent, Funding History, and Realized PnL tabs are
@@ -65,7 +75,7 @@ export function PositionsPanel({
                 {openTrades.map(t => (
                   <tr key={t.id} className="border-b border-border/30 hover:bg-muted/20">
                     <td className="px-3 py-2 font-sans font-semibold">{t.symbol} <span className="text-[9px] text-muted-foreground">{t.market} · {t.leverage}x</span></td>
-                    <td className={t.side === "long" ? "text-buy" : "text-sell"}>{t.side.toUpperCase()}</td>
+                    <td className={t.side === "long" ? "text-buy" : "text-sell"}>{sideLabel(t)}</td>
                     <td className="text-right">{t.size}</td>
                     <td className="text-right">{formatPrice(Number(t.entryPrice))}</td>
                     <td className="text-right pr-3">
@@ -100,7 +110,7 @@ export function PositionsPanel({
                 {pendingTrades.map(t => (
                   <tr key={t.id} className="border-b border-border/30 hover:bg-muted/20">
                     <td className="px-3 py-2 font-sans font-semibold">{t.symbol} <span className="text-[9px] text-muted-foreground">{t.market}</span></td>
-                    <td className={t.side === "long" ? "text-buy" : "text-sell"}>{t.side.toUpperCase()}</td>
+                    <td className={t.side === "long" ? "text-buy" : "text-sell"}>{sideLabel(t)}</td>
                     <td className="text-muted-foreground">{t.orderType}</td>
                     <td className="text-right">{t.triggerPrice ? formatPrice(Number(t.triggerPrice)) : "—"}</td>
                     <td className="text-right pr-3">
@@ -137,7 +147,7 @@ export function PositionsPanel({
                   return (
                     <tr key={t.id} className="border-b border-border/30 hover:bg-muted/20">
                       <td className="px-3 py-2 font-sans font-semibold">{t.symbol}</td>
-                      <td className={t.side === "long" ? "text-buy" : "text-sell"}>{t.side.toUpperCase()}</td>
+                      <td className={t.side === "long" ? "text-buy" : "text-sell"}>{sideLabel(t)}</td>
                       <td className="text-right">{formatPrice(Number(t.entryPrice))}</td>
                       <td className="text-right">{t.closePrice ? formatPrice(Number(t.closePrice)) : "—"}</td>
                       <td className={cn("text-right pr-3 font-bold", pnl >= 0 ? "text-buy" : "text-sell")}>
