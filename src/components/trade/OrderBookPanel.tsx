@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/format";
 import type { MarketRow, Depth, RecentTrade } from "@/lib/api";
@@ -14,7 +15,15 @@ import { getDepth, getRecentTrades } from "@/lib/api";
 // never touch the exchange's real order flow at all (see
 // PROP_FIRM_PLAN.md section 10 — only a live/funded account would ever
 // route real orders here, and that routing isn't built yet).
-export function OrderBookPanel({ selected }: { selected: MarketRow | null }) {
+export function OrderBookPanel({
+  selected,
+  collapsed,
+  onToggleCollapse,
+}: {
+  selected: MarketRow | null;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+}) {
   const [tab, setTab] = useState<"book" | "trades">("book");
   const [depth, setDepth] = useState<Depth | null>(null);
   const [trades, setTrades] = useState<RecentTrade[]>([]);
@@ -90,11 +99,18 @@ export function OrderBookPanel({ selected }: { selected: MarketRow | null }) {
         {selected && (
           <span
             className="mx-1 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide shrink-0 bg-emerald-500/15 text-emerald-400"
-            title="Real order book from the exchange, shown for reference — your simulated orders don't execute against it"
+            title="Live order book, shown for market reference"
           >
             Live
           </span>
         )}
+        <button
+          onClick={onToggleCollapse}
+          className="p-1 mr-1 rounded text-muted-foreground hover:text-primary hover:bg-muted/30 shrink-0"
+          title={collapsed ? "Expand panel" : "Minimize panel"}
+        >
+          {collapsed ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+        </button>
       </div>
 
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">

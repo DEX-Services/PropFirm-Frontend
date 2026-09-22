@@ -145,12 +145,19 @@ export function logout() {
   clearToken();
 }
 
+// changePassword — POST /auth/change-password (authenticated). Verifies the
+// current password server-side (bcrypt) before persisting the new one.
+export function changePassword(currentPassword: string, newPassword: string) {
+  return request<{ status: string }>("/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
 // --- Packages (public, mainly useful for the exchange purchase page, but
 // exposed here too so the prop firm site can show "what did I buy") ---
-
-export function listPackages() {
-  return request<Package[]>("/packages");
-}
+// listPackages is defined near the bottom of this file, together with its
+// sessionStorage cache.
 
 // --- Markets (real, currently-registered exchange markets + live prices,
 // proxied through this backend — the browser never calls the exchange's
@@ -228,7 +235,6 @@ export function getPositions(accountId: string) {
     `/trading/positions?accountId=${encodeURIComponent(accountId)}`,
   );
 }
-
 export function getHistory(accountId: string) {
   return request<Trade[] | null>(`/trading/history?accountId=${encodeURIComponent(accountId)}`);
 }
@@ -249,8 +255,51 @@ export function getTradingState(accountId: string) {
   );
 }
 
+// listPackages fetches the full package catalog. Packages are effectively
+// static (they change only when admins edit them), but the catalog endpoint
+// costs the backend two database round-trips on a remote Postgres — and it
+// sat on the first-paint path of the trade/profile/evaluation pages, adding
+// a second or more of blank "loading" time to every mount. So the result is
+// cached in sessionStorage with a short TTL: instant on repeat visits within
+// a session, at most one refetch per TTL window otherwise, and a force flag
+// lets callers bypass it when they genuinely need fresh data.
+const PACKAGES_CACHE_KEY = "propfirm-packages-cache";
+const PACKAGES_CACHE_TTL_MS = 5 * 60 * 1000;
+
+function readPackagesCache(): Package[] | null {
+  try {
+    const raw = window.sessionStorage.getItem(PACKAGES_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { at: number; packages: Package[] };
+    if (!Array.isArray(parsed.packages) || typeof parsed.at !== "number") return null;
+    if (Date.now() - parsed.at > PACKAGES_CACHE_TTL_MS) return null;
+    return parsed.packages;
+  } catch {
+    return null;
+  }
+}
+
+function writePackagesCache(packages: Package[]) {
+  try {
+    window.sessionStorage.setItem(PACKAGES_CACHE_KEY, JSON.stringify({ at: Date.now(), packages }));
+  } catch {
+    // storage full / private mode — caching is best-effort only
+  }
+}
+
+export async function listPackages(force = false): Promise<Package[]> {
+  if (!force) {
+    const cached = readPackagesCache();
+    if (cached) return cached;
+  }
+  const packages = await request<Package[]>("/packages");
+  writePackagesCache(packages);
+  return packages;
+}
+
 // getAccountAndPackages loads the trader's account and its package together,
-// in parallel.
+// in parallel. The package read goes through the cache above, so on repeat
+// visits this collapses to a single network call (GET /accounts).
 //
 // Both the trade page and the profile page need exactly this pair before
 // they can render anything, and they used to fetch it as

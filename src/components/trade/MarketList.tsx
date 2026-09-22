@@ -1,7 +1,5 @@
-import { useMemo, useState } from "react";
-import { Search, ChevronLeft, ChevronRight, Bitcoin } from "lucide-react";
+import { useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
 import { formatPrice } from "@/lib/format";
 import type { MarketRow } from "@/lib/api";
 
@@ -18,8 +16,6 @@ export function MarketList({
   activeSymbol,
   activeMarket,
   onSelect,
-  collapsed,
-  onToggleCollapse,
   mode,
   onModeChange,
 }: {
@@ -28,59 +24,14 @@ export function MarketList({
   activeSymbol: string;
   activeMarket: "SPOT" | "FUTURES";
   onSelect: (m: MarketRow) => void;
-  collapsed: boolean;
-  onToggleCollapse: () => void;
   mode: "SPOT" | "FUTURES";
   onModeChange: (mode: "SPOT" | "FUTURES") => void;
 }) {
-  const [query, setQuery] = useState("");
-
-  const filtered = useMemo(() => {
-    let list = markets.filter(m => m.market === mode);
-    if (query) list = list.filter(m => m.displaySymbol.toLowerCase().includes(query.toLowerCase()));
-    return list;
-  }, [markets, mode, query]);
-
-  if (collapsed) {
-    return (
-      <div className="glass rounded-b-lg rounded-t-none flex h-full flex-col overflow-hidden items-center justify-start py-1.5 gap-1.5">
-        <button
-          onClick={onToggleCollapse}
-          className="p-1.5 rounded hover:bg-muted/30 text-muted-foreground hover:text-primary shrink-0"
-          title="Expand market list"
-        >
-          <ChevronRight className="h-3.5 w-3.5" />
-        </button>
-        <div className="h-px w-5 bg-border shrink-0" />
-        <div className="flex flex-col items-center gap-1.5">
-          <button className="p-1.5 rounded bg-primary/15 text-primary shrink-0" title="Crypto">
-            <Bitcoin className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const filtered = useMemo(() => markets.filter(m => m.market === mode), [markets, mode]);
 
   return (
     <div className="glass rounded-b-xl rounded-t-none flex flex-col h-full overflow-hidden">
-      <div className="px-3 py-2 border-b border-border/50 space-y-2">
-        <div className="flex items-center gap-2 glass-strong px-2 py-1 rounded-md">
-          <Search className="h-3 w-3 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Search..."
-            className="h-6 border-0 bg-transparent p-0 text-xs focus-visible:ring-0"
-          />
-          <button
-            onClick={onToggleCollapse}
-            className="ml-auto p-0.5 rounded text-muted-foreground hover:text-primary hover:bg-muted/30"
-            title="Collapse market list"
-          >
-            <ChevronLeft className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
+      <div className="px-3 py-2 border-b border-border/50">
         <div className="flex items-center gap-1 flex-wrap">
           {(["SPOT", "FUTURES"] as const).map(k => (
             <button

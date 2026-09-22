@@ -1,18 +1,21 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { readTheme, type ThemeMode } from "@/lib/theme";
+import { createBinanceDatafeed } from "@/lib/binanceDatafeed";
+import { createBI2XDatafeed } from "@/lib/bi2xDatafeed";
 
-// PropFirm has no licensed TradingView Advanced Charting Library bundle (see
-// Dex New Frontend's public/charting_library/, which isn't part of this
-// app), so this uses TradingView's free tv.js embed widget with a Binance
-// symbol resolver — the same fallback path Dex New Frontend itself uses for
-// its non-crypto asset classes. Wrapped in the identical ".glass" panel
-// chrome as the DEX chart panel so it's visually the same chart real-estate,
-// just backed by the widget DEX's own crypto pairs use via the licensed
-// library's Binance datafeed instead.
-// The TradingView tv.js embed script has no published type declarations —
-// its constructor and returned widget instance are typed as an opaque
-// object here rather than `any`, just enough to satisfy the lint rule
-// without pretending to know its full shape.
+// Port of Dex New Frontend's crypto chart path: the licensed TradingView
+// Advanced Charting Library (vendored at public/charting_library/, copied
+// from the main platform) with the same custom Binance datafeed
+// (lib/binanceDatafeed.ts). The previous free tv.js embed requested
+// BINANCE:{BASE}USD — a ticker that mostly doesn't exist on Binance (it's
+// {BASE}USDT) — so most symbols rendered an empty chart. The datafeed here
+// is the identical one the DEX trade page uses for its crypto pairs, so the
+// same asset shows the same chart in both apps.
+//
+// The library's standalone script has full type declarations shipped
+// alongside it (charting_library.d.ts), but the widget constructor is
+// reached off `window` here, so the instance is kept as an opaque object —
+// same approach as the DEX version's tv.js fallback.
 type TradingViewWidget = { remove?: () => void };
 type TradingViewGlobal = { widget: new (options: Record<string, unknown>) => TradingViewWidget };
 
@@ -22,18 +25,18 @@ declare global {
   }
 }
 
-let tvScriptPromise: Promise<void> | null = null;
-function loadTradingViewEmbedScript(): Promise<void> {
-  if (tvScriptPromise) return tvScriptPromise;
-  tvScriptPromise = new Promise((resolve, reject) => {
+let libScriptPromise: Promise<void> | null = null;
+function loadChartingLibrary(): Promise<void> {
+  if (libScriptPromise) return libScriptPromise;
+  libScriptPromise = new Promise((resolve, reject) => {
     const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/tv.js";
+    script.src = "/charting_library/charting_library.standalone.js";
     script.async = true;
     script.onload = () => resolve();
     script.onerror = reject;
     document.head.appendChild(script);
   });
-  return tvScriptPromise;
+  return libScriptPromise;
 }
 
 export function TradingChart({ baseAsset }: { baseAsset: string }) {
@@ -41,8 +44,12 @@ export function TradingChart({ baseAsset }: { baseAsset: string }) {
   const widgetRef = useRef<TradingViewWidget | null>(null);
   const [theme, setTheme] = useState<ThemeMode>(readTheme);
   const reactId = useId();
-  const containerId = `tv-embed-${reactId.replace(/:/g, "")}`;
-  const tvSymbol = `BINANCE:${(baseAsset || "BTC").toUpperCase()}USD`;
+  const containerId = `tv-chart-${reactId.replace(/:/g, "")}`;
+  // The datafeed resolves the bare base asset ("BTC") itself — same
+  // convention as the DEX chart. BI2X has no Binance pair; it goes through
+  // the platform's own BI2X data feed, exactly like the DEX chart does.
+  const base = (baseAsset || "BTC").toUpperCase();
+  const isBi2x = base === "BI2X";
 
   useEffect(() => {
     const onThemeChange = (event: Event) => setTheme((event as CustomEvent<ThemeMode>).detail);
@@ -52,12 +59,18 @@ export function TradingChart({ baseAsset }: { baseAsset: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    loadTradingViewEmbedScript().then(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    // Clear any previous widget's DOM so symbol switches don't stack
+    // iframes inside the same container.
+    container.innerHTML = "";
+
+    loadChartingLibrary().then(() => {
       if (cancelled || !window.TradingView) return;
-      if (!document.getElementById(containerId)) return;
       widgetRef.current = new window.TradingView.widget({
         autosize: true,
-        symbol: tvSymbol,
+        symbol: base,
+        datafeed: isBi2x ? createBI2XDatafeed() : createBinanceDatafeed(),
         interval: "15",
         timezone: "Etc/UTC",
         theme: theme === "light" ? "light" : "dark",
@@ -70,8 +83,9 @@ export function TradingChart({ baseAsset }: { baseAsset: string }) {
         hide_top_toolbar: false,
         hide_legend: false,
         hide_side_toolbar: false,
-        container_id: containerId,
-        studies: ["Volume@tv-basicstudies"],
+        container,
+        library_path: "/charting_library/",
+        studies_overrides: {},
         disabled_features: [
           "header_compare",
           "compare_symbol",
@@ -85,7 +99,7 @@ export function TradingChart({ baseAsset }: { baseAsset: string }) {
 
     return () => {
       cancelled = true;
-      if (widgetRef.current?.remove) {
+      if (widgetRef.current?.remove && container.isConnected) {
         try {
           widgetRef.current.remove();
         } catch {
@@ -95,7 +109,7 @@ export function TradingChart({ baseAsset }: { baseAsset: string }) {
       }
       widgetRef.current = null;
     };
-  }, [tvSymbol, theme, containerId]);
+  }, [base, theme, containerId]);
 
   return (
     <div className="glass rounded-b-xl rounded-t-none flex flex-col h-full overflow-hidden">

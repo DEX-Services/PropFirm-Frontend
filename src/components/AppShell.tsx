@@ -5,6 +5,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { cn } from "@/lib/utils";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { logout } from "@/lib/api";
+import logo from "@/assets/logo.png";
 
 // PropFirm's version of Dex New Frontend's AppShell — same header chrome
 // (glass-strong bar, logo mark, nav links, theme switcher, profile menu),
@@ -31,9 +32,8 @@ export function AppShell({ children, isTradePage = false }: { children: React.Re
     <div className="min-h-screen w-full flex flex-col">
       <header className="h-14 px-3 sm:px-4 flex items-center gap-1 sm:gap-2 glass-strong border-b border-glass-border z-30 sticky top-0 overflow-hidden">
         <Link to="/trade" className="flex items-center gap-1.5 shrink-0">
-          <div className="h-8 w-8 rounded-lg bg-gradient-primary flex items-center justify-center font-bold text-sm text-primary-foreground shadow-glow-primary">
-            P
-          </div>
+          {/* Same logo mark as the main BitDx platform (Dex New Frontend). */}
+          <img src={logo} alt="BitDx logo" className="h-8 w-8 rounded-lg shadow-glow-primary shrink-0 object-contain" />
           <span className="font-bold text-base sm:text-lg tracking-tight text-foreground">
             BitDX Prop Firm
           </span>

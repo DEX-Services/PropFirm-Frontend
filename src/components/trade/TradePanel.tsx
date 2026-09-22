@@ -216,7 +216,7 @@ export function TradePanel({
                   )}>{l}x</button>
               ))}
             </div>
-            <p className="mt-1 text-[10px] text-muted-foreground">Capped by your package — see PROP_FIRM_PLAN.md.</p>
+            <p className="mt-1 text-[10px] text-muted-foreground">Capped by your package.</p>
           </div>
         ) : (
           <div className="rounded-md border border-border/50 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
@@ -287,10 +287,6 @@ export function TradePanel({
         </Button>
 
         {notice && <p className="text-xs text-center text-muted-foreground">{notice}</p>}
-
-        <p className="text-[10px] text-muted-foreground leading-relaxed pt-1 border-t border-border/40">
-          Orders are filled by the BitDX Prop Firm simulated engine against the exchange's live price feed. The fee shown is the real, undiscounted exchange rate and is actually charged on fill.
-        </p>
       </div>
     </div>
   );

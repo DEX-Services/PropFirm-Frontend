@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Coins, Target, CalendarDays, TrendingUp, FileText } from "lucide-react";
+import { Coins, Target, CalendarDays, TrendingUp, FileText, Trophy, Sparkles } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Account, Package, PackagePhase, getAccountAndPackages } from "@/lib/api";
 
@@ -61,10 +61,27 @@ export default function EvaluationPage() {
   const stages = pkg ? STAGES_BY_TRACK[pkg.track] ?? ["step1", "funded"] : [];
 
   if (loading) {
+    // Skeleton mirrors the real page structure so the layout doesn't jump
+    // when data lands, and the page never sits blank while the fetch runs.
     return (
       <AppShell>
-        <div className="max-w-6xl mx-auto p-4 sm:p-6">
-          <p className="text-sm text-muted-foreground">Loading your evaluation status…</p>
+        <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-xl animate-pulse bg-muted/40" />
+              <div className="space-y-2">
+                <div className="h-6 w-64 rounded-lg animate-pulse bg-muted/40" />
+                <div className="h-3 w-80 rounded-lg animate-pulse bg-muted/40" />
+              </div>
+            </div>
+            <div className="h-10 w-40 rounded-xl animate-pulse bg-muted/40" />
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[0, 1, 2, 3].map(i => (
+              <div key={i} className="h-20 rounded-xl animate-pulse bg-muted/40" />
+            ))}
+          </div>
+          <div className="h-96 rounded-xl animate-pulse bg-muted/40" />
         </div>
       </AppShell>
     );
@@ -98,11 +115,23 @@ export default function EvaluationPage() {
     <AppShell>
       <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">Evaluation Progress</h1>
-            <p className="text-sm text-muted-foreground mt-1">Complete the trading objectives to become a funded trader.</p>
+          <div className="relative">
+            <div className="absolute -top-10 -left-10 h-40 w-40 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+            <div className="relative flex items-center gap-3">
+              <span className="h-11 w-11 rounded-xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground flex items-center justify-center shadow-lg shadow-primary/25">
+                <Sparkles className="h-5 w-5" />
+              </span>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text">
+                  Evaluation Progress
+                </h1>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Complete the trading objectives to become a funded trader.
+                </p>
+              </div>
+            </div>
           </div>
-          <button className="inline-flex items-center gap-2 rounded-lg glass-strong border border-border/50 px-3.5 py-2 text-sm font-semibold hover:bg-muted/30 transition-colors">
+          <button className="inline-flex items-center gap-2 rounded-xl glass-strong border border-border/50 px-4 py-2.5 text-sm font-semibold hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-all shadow-sm">
             <FileText className="h-4 w-4 text-primary" /> Evaluation Rules
           </button>
         </div>
@@ -114,7 +143,7 @@ export default function EvaluationPage() {
           <SummaryCard icon={<CalendarDays className="h-4.5 w-4.5" />} label="Start Date" value={new Date(account.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })} sub="No fixed end date — trade at your own pace" />
         </div>
 
-        <div className="glass rounded-xl overflow-hidden overflow-x-auto">
+        <div className="glass rounded-xl border border-glass-border shadow-sm overflow-hidden overflow-x-auto">
           <div className="grid min-w-[600px]" style={{ gridTemplateColumns: `220px repeat(${stages.length}, minmax(0,1fr))` }}>
             <HeaderCell>Objectives</HeaderCell>
             {stages.map(stage => {
@@ -178,12 +207,14 @@ export default function EvaluationPage() {
 
 function SummaryCard({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: string; sub: string }) {
   return (
-    <div className="glass rounded-xl p-4 flex items-start gap-3">
-      <span className="h-9 w-9 rounded-lg bg-primary/15 text-primary flex items-center justify-center shrink-0">{icon}</span>
+    <div className="group glass rounded-xl border border-glass-border p-4 flex items-start gap-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/10 hover:border-primary/30">
+      <span className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary flex items-center justify-center shrink-0 ring-1 ring-primary/20 transition-transform duration-200 group-hover:scale-105">
+        {icon}
+      </span>
       <div className="min-w-0">
-        <div className="text-[11px] text-muted-foreground">{label}</div>
+        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
         <div className="text-lg font-bold truncate">{value}</div>
-        <div className="text-[11px] text-muted-foreground truncate">{sub}</div>
+        <div className="text-[11px] text-muted-foreground/80 truncate">{sub}</div>
       </div>
     </div>
   );
@@ -195,8 +226,33 @@ function HeaderCell({ children }: { children: React.ReactNode }) {
 
 function StageHeaderCell({ title, subtitle, active, funded }: { title: string; subtitle: string; active?: boolean; funded?: boolean }) {
   return (
-    <div className={`px-4 py-3.5 text-center border-b border-glass-border ${active ? "bg-primary/5" : ""}`}>
-      <div className={`text-sm font-bold ${funded ? "text-yellow-500" : ""}`}>{funded ? "🏆 " : ""}{title}</div>
+    <div
+      className={`relative px-4 py-3.5 text-center border-b border-glass-border transition-colors ${
+        active
+          ? funded
+            ? "bg-yellow-500/5"
+            : "bg-primary/10"
+          : ""
+      }`}
+    >
+      {active && (
+        <span
+          className={`absolute inset-x-6 -top-px h-0.5 rounded-full ${funded ? "bg-yellow-500" : "bg-primary"}`}
+        />
+      )}
+      <div className="flex items-center justify-center gap-1.5">
+        {funded && <Trophy className="h-3.5 w-3.5 text-yellow-500" />}
+        <span className={`text-sm font-bold ${funded ? "text-yellow-500" : ""}`}>{title}</span>
+        {active && (
+          <span
+            className={`ml-1 px-1.5 py-px rounded-full text-[9px] font-bold uppercase tracking-wide ${
+              funded ? "bg-yellow-500/15 text-yellow-500" : "bg-primary/15 text-primary"
+            }`}
+          >
+            Current
+          </span>
+        )}
+      </div>
       <div className="text-[11px] text-muted-foreground">{subtitle}</div>
     </div>
   );
@@ -235,21 +291,38 @@ function ProgressCell({
   const doneAmount = achieved ?? 0;
   const progressPct = limitAmount > 0 ? Math.min(100, (doneAmount / limitAmount) * 100) : 0;
   const isLoss = kind !== "target";
-  const barColor = isLoss ? (progressPct > 80 ? "bg-sell" : "bg-yellow-500") : "bg-buy";
+  const barColor =
+    isLoss
+      ? progressPct > 80
+        ? "bg-gradient-to-r from-sell/80 to-sell"
+        : "bg-gradient-to-r from-yellow-500/70 to-yellow-500"
+      : "bg-gradient-to-r from-buy/70 to-buy";
+  const met = kind === "target" && progressPct >= 100;
 
   return (
     <div className={`px-4 py-3.5 border-b border-glass-border ${current ? "bg-primary/5" : ""}`}>
-      <div className="text-center text-sm font-bold mb-1.5">
+      <div className="text-center text-sm font-bold mb-2">
         ${limitAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })} ({Number(pct)}%)
       </div>
-      <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden">
-        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${progressPct}%` }} />
+      <div className="relative h-2 rounded-full bg-muted/40 overflow-hidden">
+        <div
+          className={`h-full rounded-full ${barColor} transition-[width] duration-500 ${
+            progressPct > 0 ? "shadow-[0_0_8px_rgba(255,255,255,0.25)_inset]" : ""
+          }`}
+          style={{ width: `${progressPct}%` }}
+        />
       </div>
-      <div className="flex items-center justify-between mt-1 text-[11px]">
-        <span className={isLoss ? "text-yellow-500 font-semibold" : "text-buy font-semibold"}>
+      <div className="flex items-center justify-between mt-1.5 text-[11px]">
+        <span className={met ? "text-buy font-bold" : isLoss ? "text-yellow-500 font-semibold" : "text-buy font-semibold"}>
           ${doneAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })} / ${limitAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
         </span>
-        <span className={progressPct > 80 ? "text-sell font-semibold" : "text-muted-foreground"}>{progressPct.toFixed(0)}%</span>
+        <span
+          className={`font-semibold ${
+            progressPct > 80 ? "text-sell" : met ? "text-buy" : "text-muted-foreground"
+          }`}
+        >
+          {progressPct.toFixed(0)}%
+        </span>
       </div>
     </div>
   );
@@ -263,13 +336,18 @@ function DaysCell({ current, phase, daysDone }: { current?: boolean; phase: Pack
   const met = daysDone >= phase.minTradingDays;
   return (
     <div className={`px-4 py-3.5 border-b border-glass-border ${current ? "bg-primary/5" : ""}`}>
-      <div className="text-center text-sm font-bold mb-1.5">{phase.minTradingDays} Days</div>
-      <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden">
-        <div className={`h-full rounded-full ${met ? "bg-buy" : "bg-primary"}`} style={{ width: `${progressPct}%` }} />
+      <div className="text-center text-sm font-bold mb-2">{phase.minTradingDays} Days</div>
+      <div className="h-2 rounded-full bg-muted/40 overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-[width] duration-500 ${met ? "bg-gradient-to-r from-buy/70 to-buy" : "bg-gradient-to-r from-primary/70 to-primary"}`}
+          style={{ width: `${progressPct}%` }}
+        />
       </div>
-      <div className="flex items-center justify-between mt-1 text-[11px]">
-        <span className={met ? "text-buy font-semibold" : "text-foreground font-semibold"}>{daysDone} / {phase.minTradingDays}</span>
-        <span className={met ? "text-buy font-semibold" : "text-sell font-semibold"}>{progressPct.toFixed(0)}%</span>
+      <div className="flex items-center justify-between mt-1.5 text-[11px]">
+        <span className={met ? "text-buy font-bold" : "text-foreground font-semibold"}>
+          {daysDone} / {phase.minTradingDays}
+        </span>
+        <span className={met ? "text-buy font-semibold" : "text-muted-foreground"}>{progressPct.toFixed(0)}%</span>
       </div>
     </div>
   );
